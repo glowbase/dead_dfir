@@ -1,6 +1,13 @@
 # Dead Unix Baseliner
 Baseline dead Unix machines via mounted image.
 
+### Use
+Prior to executing the `baseline.sh` script, ensure you have already mounted the target file system. 
+
+```bash
+sudo ./baseline.sh /mnt/<drive>
+```
+
 ### To Do:
 - [ ] Device Settings (OS, Kernel, Processor, Time Zone, Last Shutdown)
 - [ ] Users (Username, UID, Groups, Shell)
