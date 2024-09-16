@@ -84,15 +84,8 @@ echo $(log_value "Processor Architecture" "${proc_arch}")
 # -----------------------------------------------------------
 # https://forums.ni.com/t5/NI-Linux-Real-Time-Discussions/Timezones/td-p/3693784
 
-if [ -f "$MOUNT_POINT/etc/timezone" ]; then
-  time_zone=$(cat $MOUNT_POINT/etc/timezone)
-elif [ -f "$MOUNT_POINT/etc/localtime" ]; then
-  time_zone=$(tail -n 1 $MOUNT_POINT/etc/localtime)
-else
-  time_zone="Not Found"
-fi
-
-echo $(log_value "Time Zone" "${time_zone}")
+timezone="$(realpath $MOUNT_POINT/etc/localtime | sed 's/.*zoneinfo\///')"
+echo $(log_value "Time Zone" "${timezone}")
 
 # -----------------------------------------------------------
 # LAST SHUTDOWN
@@ -150,13 +143,109 @@ fi
 # -----------------------------------------------------------
 echo $(log_header "CRON JOBS")
 
-echo "Do stuff here."
+suspicious_patterns=(
+    "wget"
+    "curl"
+    "nc"
+    "bash"
+    "sh"
+    "base64"
+    "eval"
+    "exec"
+    "/tmp/"
+    "/dev/"
+    "perl"
+    "python"
+    "ruby"
+    "nmap"
+    "tftp"
+    "nc"
+)
 
+cron_files=(
+    "$MOUNT_POINT/etc/crontab"
+    "$MOUNT_POINT/etc/cron.d"
+    "$MOUNT_POINT/etc/cron.hourly"
+    "$MOUNT_POINT/etc/cron.daily"
+    "$MOUNT_POINT/etc/cron.weekly"
+    "$MOUNT_POINT/etc/cron.monthly"
+)
+
+user_cron_directories=(
+    "$MOUNT_POINT/var/spool/cron/crontabs" # Debian/Ubuntu
+    "$MOUNT_POINT/var/spool/cron"          # Red Hat/CentOS
+)
+
+escape_sed_delimiters() {
+    local string="$1"
+    echo "$string" | sed 's/[.[\*^$]/\\&/g'
+}
+
+is_suspicious() {
+    local line="$1"
+
+	for pattern in "${suspicious_patterns[@]}"; do
+		if echo "$line" | grep -q "$pattern"; then
+			return 0
+		fi
+	done
+
+    return 1
+}
+
+scan_cron_jobs() {
+    local path="$1"
+
+    if [ -f "$path" ]; then
+        echo -e $(log_value "$file" "")
+
+        while IFS= read -r line; do
+            if is_suspicious "$line"; then
+				echo "$line"
+			fi
+        done < "$path"
+    elif [ -d "$path" ]; then
+        for file in "$path"/*; do
+            if [ -f "$file" ]; then
+                echo -e $(log_value "$file" "")
+
+                while IFS= read -r line; do
+                    if is_suspicious "$line"; then
+                        echo "$line"
+                    fi
+                done < "$file"
+            fi
+        done
+    fi
+}
+
+found_suspicious=false
+for file in "${cron_files[@]}"; do
+    if [ -e "$file" ]; then
+        scan_cron_jobs "$file"
+        found_suspicious=true
+    fi
+done
+
+for dir in "${user_cron_directories[@]}"; do
+    if [ -d "$dir" ]; then
+        for user_cron in "$dir"/*; do
+            if [ -f "$user_cron" ]; then
+                scan_cron_jobs "$user_cron"
+                found_suspicious=true
+            fi
+        done
+    fi
+done
+
+if [ "$found_suspicious" = false ]; then
+    echo "No Suspicious Crons Found..."
+fi
 # -----------------------------------------------------------
 # NETWORK
 # -----------------------------------------------------------
 echo $(log_header "NETWORK")
 
-echo "Do stuff here."
+
 
 echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
