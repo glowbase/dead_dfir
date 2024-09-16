@@ -1,4 +1,4 @@
-# Dead Unix Baseliner
+# Dead DFIR
 Baseline dead Unix machines via mounted image.
 
 ### Use
