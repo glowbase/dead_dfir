@@ -1,5 +1,5 @@
 # Dead DFIR
-Baseline dead Unix machines via mounted image.
+Baseline and perform analysis on dead Linux machine mounted via image file.
 
 ### Use
 Prior to executing the `baseline.sh` script, ensure you have already mounted the target file system. 
