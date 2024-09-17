@@ -30,7 +30,7 @@ log_value() {
   echo -e "${RED}${BOLD}[+] ${BLUE}${title}: ${RESET}${val}"
 }
 
-get_file_property() {
+get_property() {
   local key=$1
   local file=$2
   
@@ -59,6 +59,13 @@ else
 fi
 
 # -----------------------------------------------------------
+# MOUNT IMAGE
+# -----------------------------------------------------------
+mount_image() {
+  echo 'eofijwoif'
+}
+
+# -----------------------------------------------------------
 # DEVICE SETTINGS
 # -----------------------------------------------------------
 get_device_settings() {
@@ -67,13 +74,13 @@ get_device_settings() {
 
   # OS Version
   if [ -f "$MOUNT_POINT/etc/os-release" ]; then
-    os_version=$(get_file_property "PRETTY_NAME" $MOUNT_POINT/etc/os-release)
+    os_version=$(get_property "PRETTY_NAME" $MOUNT_POINT/etc/os-release)
   elif [ -f "$MOUNT_POINT/etc/lsb-release" ]; then
-    os_version=$(get_file_property "PRETTY_NAME" $MOUNT_POINT/etc/lsb-release)
+    os_version=$(get_property "PRETTY_NAME" $MOUNT_POINT/etc/lsb-release)
   elif [ -f "$MOUNT_POINT/etc/redhat-release" ]; then
-    os_version=$(get_file_property "PRETTY_NAME" $MOUNT_POINT/etc/redhat-release)
+    os_version=$(get_property "PRETTY_NAME" $MOUNT_POINT/etc/redhat-release)
   elif [ -f "$MOUNT_POINT/etc/debian_version" ]; then
-    os_version=$(get_file_property "PRETTY_NAME" $MOUNT_POINT/etc/debian_version)
+    os_version=$(get_property "PRETTY_NAME" $MOUNT_POINT/etc/debian_version)
   else
     os_version="Not Found"
   fi
@@ -127,10 +134,10 @@ get_users() {
     creation="$(get_birth $home)"
 
     echo -e "$(log_value "$user ($id)" "")"
-    echo -e "    ${BOLD}Creation: ${RESET}$creation"
-    echo -e "    ${BOLD}Password: ${RESET}$pass_enabled"
-    echo -e "    ${BOLD}Disabled: ${RESET}${dis_enabled}"
-    echo -e "    ${BOLD}Groups: ${RESET}$groups"
+    echo -e "  ${BOLD}Creation: ${RESET}$creation"
+    echo -e "  ${BOLD}Password: ${RESET}$pass_enabled"
+    echo -e "  ${BOLD}Disabled: ${RESET}${dis_enabled}"
+    echo -e "  ${BOLD}Groups: ${RESET}$groups"
     echo
   done
 }
@@ -300,6 +307,29 @@ get_network() {
   echo $(log_value "DNS" "")
   dns=$(cat $MOUNT_POINT/etc/resolv.conf | egrep -v "^#")
   echo "$dns"
+  echo
+
+  echo $(log_value "Interfaces" "")
+  debian="$MOUNT_POINT/etc/network/interfaces"
+  rehl="$MOUNT_POINT/etc/sysconfig/network-scripts/ifcfg-*"
+
+  get_key() {
+    local key=$1
+    local file=$2
+
+    echo "$(grep $key $file | tr -d '"' | cut -d "=" -f 2)"
+  }
+
+  if [ -f $debian ]; then
+    echo "Debian"
+  else
+    for config in $(ls $rehl); do
+      echo -e "  ${BOLD_PINK}$(get_key "NAME" "$config"):${RESET}"
+      echo -e "    ${BOLD}IP:${RESET} $(get_key "IPADDR" "$config")"
+      echo -e "    ${BOLD}Mask:${RESET} $(get_key "NETMASK" "$config")"
+      echo
+    done
+  fi
 
   echo
 }
