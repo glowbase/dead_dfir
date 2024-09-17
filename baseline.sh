@@ -310,8 +310,6 @@ get_network() {
   echo
 
   echo $(log_value "Interfaces" "")
-  debian="$MOUNT_POINT/etc/network/interfaces"
-  rhel="$MOUNT_POINT/etc/sysconfig/network-scripts/ifcfg-*"
 
   get_key() {
     local key=$1
@@ -320,9 +318,12 @@ get_network() {
     echo "$(grep $key $file | tr -d '"' | cut -d "=" -f 2)"
   }
 
-  if [ -f "$debian" ]; then
-    echo "Debian"
-  elif [ -f $rhel ]; then
+  debian="$MOUNT_POINT/etc/network/interfaces"
+  rhel="$MOUNT_POINT/etc/sysconfig/network-scripts/ifcfg-*"
+
+  if [ -f $debian ]; then
+    echo $debian
+  elif [ ! -z "$(cat $rhel)" ]; then
     for config in $(ls $rhel); do
       local uuid="$(get_key "UUID" "$config")"
       local int="$(get_key "DEVICE" "$config")"
@@ -356,6 +357,8 @@ get_network() {
     echo
   fi
 }
+
+get_network
 
 # -----------------------------------------------------------
 # LAST MODIFIED
@@ -400,4 +403,5 @@ execute_all() {
 
   echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
-execute_all
+
+# execute_all
