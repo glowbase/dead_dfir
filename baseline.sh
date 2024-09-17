@@ -245,9 +245,9 @@ get_cron_jobs() {
           echo -e $(log_value "$file" "")
 
           while IFS= read -r line; do
-              if is_suspicious "$line"; then
-          echo "$line"
-        fi
+            if is_suspicious "$line"; then
+              echo "$line"
+            fi
           done < "$path"
 
       echo
@@ -311,7 +311,7 @@ get_network() {
 
   echo $(log_value "Interfaces" "")
   debian="$MOUNT_POINT/etc/network/interfaces"
-  rehl="$MOUNT_POINT/etc/sysconfig/network-scripts/ifcfg-*"
+  rhel="$MOUNT_POINT/etc/sysconfig/network-scripts/ifcfg-*"
 
   get_key() {
     local key=$1
@@ -320,18 +320,41 @@ get_network() {
     echo "$(grep $key $file | tr -d '"' | cut -d "=" -f 2)"
   }
 
-  if [ -f $debian ]; then
+  if [ -f "$debian" ]; then
     echo "Debian"
-  else
-    for config in $(ls $rehl); do
-      echo -e "  ${BOLD_PINK}$(get_key "NAME" "$config"):${RESET}"
-      echo -e "    ${BOLD}IP:${RESET} $(get_key "IPADDR" "$config")"
-      echo -e "    ${BOLD}Mask:${RESET} $(get_key "NETMASK" "$config")"
+  elif [ -f $rhel ]; then
+    for config in $(ls $rhel); do
+      local uuid="$(get_key "UUID" "$config")"
+      local int="$(get_key "DEVICE" "$config")"
+      local type="$(get_key "BOOTPROTO" "$config")"
+
+      echo -e "${BOLD_PINK}$int:${RESET}"
+
+      if [ "$type" == "dhcp" ]; then
+        lease_config="$(cat $MOUNT_POINT/var/lib/NetworkManager/dhclient-$uuid*)"
+
+        ip_address="$(echo "$lease_config" | grep -oP "fixed-address \K\d{1,3}(\.\d{1,3}){3}" | tail -n 1)"
+        subnet_mask="$(echo "$lease_config" | grep -oP "subnet-mask \K\d{1,3}(\.\d{1,3}){3}" | tail -n 1)"
+        default_gateway="$(echo "$lease_config" | grep -oP "routers \K\d{1,3}(\.\d{1,3}){3}" | tail -n 1)"
+        renew_time="$(echo "$lease_config" | grep -oP 'renew \d+ \K\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}' | tail -n 1)"
+        
+        echo -e "  ${BOLD}Type:${RESET} $type"
+        echo -e "  ${BOLD}IP:${RESET} $ip_address"
+        echo -e "  ${BOLD}Mask:${RESET} $subnet_mask"
+        echo -e "  ${BOLD}Gateway:${RESET} $default_gateway"
+        echo -e "  ${BOLD}Set Time:${RESET} $renew_time"
+      else
+        echo -e "  ${BOLD}Type:${RESET} static"
+        echo -e "  ${BOLD}IP:${RESET} $(get_key "IPADDR" "$config")"
+        echo -e "  ${BOLD}Mask:${RESET} $(get_key "NETMASK" "$config")"
+      fi
+      
       echo
     done
+  else
+    echo "Cannot find network configurations..."
+    echo
   fi
-
-  echo
 }
 
 # -----------------------------------------------------------
@@ -374,10 +397,7 @@ execute_all() {
   get_installed_software
   get_cron_jobs
   get_network
-  get_last_modified
-  get_sessions
 
   echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
-
 execute_all
