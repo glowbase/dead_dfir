@@ -9,11 +9,11 @@ sudo ./baseline.sh /mnt/<drive>
 ```
 
 ### To Do:
-- [ ] Device Settings (OS, Kernel, Processor, Time Zone, Last Shutdown)
-- [ ] Users (Username, UID, Groups, Shell)
-- [ ] Sudoers (Look in `/etc/sudoers.d`)
+- [x] Device Settings (OS, Kernel, Processor, Time Zone, Last Shutdown)
+- [x] Users (Username, UID, Groups, Shell)
+- [x] Sudoers (Look in `/etc/sudoers.d`)
 - [ ] Installed Software (Install Date, Name, Version)
-- [ ] Persistence Mechanisms (Cron)
+- [x] Persistence Mechanisms (Cron)
 - [ ] Network Configuration
 - [ ] System Logs (Detect Anomalous Behavior)
 - [ ] Web Server (Configuration, Logs)
