@@ -358,8 +358,6 @@ get_network() {
   fi
 }
 
-get_network
-
 # -----------------------------------------------------------
 # LAST MODIFIED
 # -----------------------------------------------------------
@@ -404,4 +402,4 @@ execute_all() {
   echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
 
-# execute_all
+execute_all
