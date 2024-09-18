@@ -388,19 +388,23 @@ get_last_modified() {
 # SESSIONS
 # -----------------------------------------------------------
 get_sessions() {
-  echo $(log_header "SESSIONS")
+  
+  echo $(log_header "REMOTE SESSIONS")
   echo
 
   if [ -e $MOUNT_POINT/var/log/auth.log ]; then
-    grep "session opened" $MOUNT_POINT/var/log/auth.log | awk '{print $1, $2, $3, $9, $10, $11}'
-    grep "session closed" $MOUNT_POINT/var/log/auth.log | awk '{print $1, $2, $3, $9, $10, $11}'
+    egrep "session opened|session closed" $MOUNT_POINT/var/log/auth.log | awk '{print "state:", $8,"\t|\t", "user:", $11,"\t|\t", "timestamp: ", $1, $2, $3}'
   elif [ -e $MOUNT_POINT/var/log/secure ]; then
-    grep "session opened" $MOUNT_POINT/var/log/secure | awk '{print $1, $2, $3, $9, $10, $11}'
-    grep "session closed" $MOUNT_POINT/var/log/secure | awk '{print $1, $2, $3, $9, $10, $11}'
+    egrep "session opened|session closed" $MOUNT_POINT/var/log/secure | awk '{print "state:", $8,"\t|\t", "user:", $11,"\t|\t", "timestamp: ", $1, $2, $3}'
   else
-    echo "Cannot find session information..."
+    echo "Cannot find remote session information..."
   fi
+  echo
 
+  echo $(log_header "LAST LOGINS")
+  echo
+
+  lastlog -R $MOUNT_POINT | egrep -v "\*\*Never" | awk 'NR>1 {print $1; if (NF>=6) for (i=NF-5; i<=NF; i++) printf "%s ", $i; print ""; if (NF-5 != 3) print "from:\t" $3; if (NF-5 != 2) print "on:\t" $2; print "\n"}'
   echo
 }
 
