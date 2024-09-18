@@ -66,6 +66,13 @@ else
 	export TZ="$TIME_ZONE"
 fi
 
+convert_timestamp() {
+  local timestamp="$1"
+  # Convert timestamp to the target timezone
+  # Assumes the format of timestamp is YYYY-MM-DD HH:MM:SS for conversion
+  date -d "$timestamp $from_tz" +"%Y-%m-%d %H:%M:%S" -u | TZ="$to_tz" date +"%Y-%m-%d %H:%M:%S"
+}
+
 # -----------------------------------------------------------
 # MOUNT IMAGE
 # -----------------------------------------------------------
@@ -335,7 +342,31 @@ get_network() {
   rhel="$MOUNT_POINT/etc/sysconfig/network-scripts/ifcfg-*"
 
   if [ -f $debian ]; then
-    echo "$(cat $debian)"
+    interfaces="$(cat $debian | grep "iface")"
+
+    while IFS= read -r line; do
+      int="$(echo $line | cut -d " " -f 2)"
+      type="$(echo $line | cut -d " " -f 4)"
+
+      echo -e "${BOLD_PINK}$int:${RESET}"
+
+      if [ "$type" == "dhcp" ]; then
+        lease_config="$(cat $MOUNT_POINT/var/lib/dhcp/dhclient.$int.leases)"
+
+        ip_address="$(echo "$lease_config" | grep -oP "fixed-address \K\d{1,3}(\.\d{1,3}){3}" | tail -n 1)"
+        subnet_mask="$(echo "$lease_config" | grep -oP "subnet-mask \K\d{1,3}(\.\d{1,3}){3}" | tail -n 1)"
+        default_gateway="$(echo "$lease_config" | grep -oP "routers \K\d{1,3}(\.\d{1,3}){3}" | tail -n 1)"
+        renew_time="$(echo "$lease_config" | grep -oP 'renew \d+ \K\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}' | tail -n 1)"
+        
+        echo -e "  ${BOLD}Type:${RESET} $type"
+        echo -e "  ${BOLD}IP:${RESET} $ip_address"
+        echo -e "  ${BOLD}Mask:${RESET} $subnet_mask"
+        echo -e "  ${BOLD}Gateway:${RESET} $default_gateway"
+        echo -e "  ${BOLD}Set Time:${RESET} $renew_time"
+      else
+        echo -e "  ${BOLD}Type:${RESET} $type"
+      fi
+    done <<< "$interfaces"
   elif [ ! -z "$(cat $rhel)" ]; then
     for config in $(ls $rhel); do
       local uuid="$(get_key "UUID" "$config")"
@@ -371,6 +402,8 @@ get_network() {
   fi
 }
 
+get_network
+
 # -----------------------------------------------------------
 # LAST MODIFIED
 # -----------------------------------------------------------
@@ -393,18 +426,28 @@ get_sessions() {
   echo
 
   if [ -e $MOUNT_POINT/var/log/auth.log ]; then
-    egrep "session opened|session closed" $MOUNT_POINT/var/log/auth.log | awk '{print "state:", $8,"\t|\t", "user:", $11,"\t|\t", "timestamp: ", $1, $2, $3}'
+    output="$(egrep "session opened|session closed" $MOUNT_POINT/var/log/auth.log | awk '{print "state:", $8,"\t|\t", "user:", $11,"\t|\t", "timestamp: ", $1, $2, $3}')"
   elif [ -e $MOUNT_POINT/var/log/secure ]; then
-    egrep "session opened|session closed" $MOUNT_POINT/var/log/secure | awk '{print "state:", $8,"\t|\t", "user:", $11,"\t|\t", "timestamp: ", $1, $2, $3}'
+    output="$(egrep "session opened|session closed" $MOUNT_POINT/var/log/secure | awk '{print "state:", $8,"\t|\t", "user:", $11,"\t|\t", "timestamp: ", $1, $2, $3}')"
   else
     echo "Cannot find remote session information..."
   fi
-  echo
+  
+  # while IFS= read -r line; do
+  #   echo "$(convert_timezone "$line")"
+  # done <<< "$output"
 
+  echo "$output"
+
+  echo
+}
+
+get_last_logins() {
   echo $(log_header "LAST LOGINS")
   echo
 
   lastlog -R $MOUNT_POINT | egrep -v "\*\*Never" | awk 'NR>1 {print $1; if (NF>=6) for (i=NF-5; i<=NF; i++) printf "%s ", $i; print ""; if (NF-5 != 3) print "from:\t" $3; if (NF-5 != 2) print "on:\t" $2; print "\n"}'
+  
   echo
 }
 
@@ -415,8 +458,9 @@ execute_all() {
   get_installed_software
   get_cron_jobs
   get_network
+  get_sessions
 
   echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
 
-execute_all
+# execute_all
