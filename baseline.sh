@@ -444,7 +444,8 @@ get_web_logs() {
     echo
 
     echo -e "$(log_value "User Agents" "")"
-    awk -F '"' '{print $6}' "$log_file" | sort | uniq -c | sort -nr | head -n 10
+    local anomalous_useragents="wpscan"
+    awk -F '"' '{print $6}' "$log_file" | sort | uniq -c | sort -nr | head -n 10 | egrep --color=always -i "$anomalous_useragents|$"
     echo
 
     echo -e "$(log_value "Possible Brute-Force Attempts" "")"
@@ -471,12 +472,12 @@ get_wordpress_logs() {
   if [ -f "$log_file" ]; then
     if cat $log_file | head -n 10 | egrep -q "wp-admin|wp-login|wp-content|wp"; then
       echo -e "$(log_value "Plugins" "")"
-      query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep --color=always "plugins" | head -n 10 )"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "plugins" | head -n 10 )"
       echo "$query"
       echo
 
       echo -e "$(log_value "Themes" "")"
-      query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep --color=always "theme" | head -n 10 )"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "theme" | head -n 10 )"
       echo "$query"
       echo
 
@@ -491,7 +492,7 @@ get_wordpress_logs() {
       echo
 
       echo -e "$(log_value "Uploaded Content" "")"
-      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "wp-content/uploads" | tail -n 10 )"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep "wp-content/uploads" | tail -n 10 )"
       echo "$query"
     else
       echo "Does not appear to be a WordPress site..."
