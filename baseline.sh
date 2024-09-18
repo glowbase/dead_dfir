@@ -1,5 +1,7 @@
 #!/bin/bash
 
+clear
+
 MOUNT_POINT="$1"
 TIME_ZONE="$2"
 
@@ -187,15 +189,15 @@ get_installed_software() {
   echo $(log_header "INSTALLED SOFTWARE")
   echo
 
-  if [ -f "$MOUNT_POINT/var/log/dpkg.log" ]; then
-  echo
-  elif [ -f "$MOUNT_POINT/var/log/yum.log" ]; then
-    packages=$(grep -i installed $MOUNT_POINT/var/log/yum.log)
-    highlighted=$(echo "${packages}" | cut -d " " -f 1-3,5 | sed -e 's/^\(.*\) \([^-]*\)-\(.*\)/\1 \x1b[1;35m\2\x1b[0m-\3/')
+  apt="$MOUNT_POINT/var/log/apt/history.log"
+  yum="$MOUNT_POINT/var/log/yum.log"
 
-    echo "$highlighted"
+  if [ -f "$apt" ]; then
+    cat "$apt"
+  elif [ -f "$yum" ]; then
+    echo "$(grep -i installed $yum | sed -e 's/Installed: //')"
   else
-    echo $(log_value "Could't find Installed Software..." "")
+    echo "$(log_value "Could't find Installed Software..." "")"
   fi
 
   echo
@@ -430,24 +432,105 @@ get_remote_sessions() {
   elif [ -e $MOUNT_POINT/var/log/secure ]; then
     output="$(egrep "session opened|session closed" $MOUNT_POINT/var/log/secure | awk '{print "state:", $8,"\t|\t", "user:", $11,"\t|\t", "timestamp: ", $1, $2, $3}')"
   else
-    echo "Cannot find remote session information..."
+    output="Cannot find remote session information..."
   fi
-  
-  # while IFS= read -r line; do
-  #   echo "$(convert_timezone "$line")"
-  # done <<< "$output"
 
   echo "$output"
-
   echo
 }
 
+# -----------------------------------------------------------
+# LAST LOGINS
+# -----------------------------------------------------------
 get_last_logins() {
   echo $(log_header "LAST LOGINS")
   echo
 
-  lastlog -R $MOUNT_POINT | egrep -v "\*\*Never" | awk 'NR>1 {print $1; if (NF>=6) for (i=NF-5; i<=NF; i++) printf "%s ", $i; print ""; if (NF-5 != 3) print "from:\t" $3; if (NF-5 != 2) print "on:\t" $2; print "\n"}'
-  
+  local output="$(lastlog -R $MOUNT_POINT | egrep -v "\*\*Never")"
+
+  while IFS= read -r line; do
+    if [ "$(echo $line | egrep -v "Username|Port|From|Latest")" ]; then
+      is_ip="$(echo $line | grep -oP '\b\d{1,3}(\.\d{1,3}){3}\b')"
+
+      local user="$(echo $line | cut -d " " -f 1)"
+      local type="$(echo $line | cut -d " " -f 2)"
+
+        echo -e "${BOLD_PINK}$user${RESET}:"
+        echo -e "  ${BOLD}Type: ${RESET}$type"
+      if [ "$is_ip" ]; then
+        local from="$(echo $line | cut -d " " -f 3)"
+        local date_time="$(echo $line | cut -d " " -f 4-10)"
+
+        echo -e "  ${BOLD}From: ${RESET}$from (Remote)"
+        echo -e "  ${BOLD}Date/Time: ${RESET}$date_time"
+        echo
+      else
+        local date_time="$(echo $line | cut -d " " -f 3-10)"
+
+        echo -e "  ${BOLD}From: ${RESET}Local"
+        echo -e "  ${BOLD}Date/Time: ${RESET}$date_time"
+        echo
+      fi
+    fi
+  done <<< "$output"
+}
+
+# -----------------------------------------------------------
+# WEB LOGS
+# -----------------------------------------------------------
+get_web_logs() {
+  echo $(log_header "WEB LOGS")
+  echo
+
+  local log_file="$MOUNT_POINT/var/log/apache2/access.log"
+
+  if [ -f "$log_file" ]; then
+    echo -e "$(log_value "IP Addresses" "")"
+    awk '{print $1}' "$log_file" | sort | uniq -c | sort -nr | head -n 10
+    echo
+
+    echo -e "$(log_value "User Agents" "")"
+    awk -F '"' '{print $6}' "$log_file" | sort | uniq -c | sort -nr | head -n 10
+    echo
+
+    echo -e "$(log_value "Possible Brute-Force Attempts" "")"
+    awk '{print $1, $4}' "$log_file" | \
+        sed 's/\[//; s/\]//; s/:/ /; s/\// /g' | \
+        awk '{print $1, $2, $3, $4, $5}' | \
+        sort | uniq -c | sort -nr | head -n 10
+    echo
+  else
+    echo "Apache logs do not exist..."
+  fi
+}
+
+# -----------------------------------------------------------
+# WORDPRESS
+# -----------------------------------------------------------
+get_wordpress_logs() {
+  echo $(log_header "WORDPRESS")
+  echo
+
+  local log_file="$MOUNT_POINT/var/log/apache2/access.log"
+
+  if [ -f "$log_file" ]; then
+    if cat $log_file | head -n 10 | egrep -q "wp-admin|wp-login|wp-content|wp"; then
+      plugins="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "plugins" )"
+      theme="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "theme" )"
+    
+      echo -e "$(log_value "Plugins" "")"
+      echo "$plugins"
+      echo
+
+      echo -e "$(log_value "Themes" "")"
+      echo "$theme"
+    else
+      echo "Does not appear to be a WordPress site..."
+    fi
+  else
+    echo "Apache logs do not exist..."
+  fi
+
   echo
 }
 
@@ -456,12 +539,15 @@ execute_all() {
   get_users
   get_sudoers
   get_installed_software
-  get_cron_jobs
+  # get_cron_jobs
   get_network
   get_remote_sessions
   get_last_logins
+  get_web_logs
+  get_wordpress_logs
 
   echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
 
 execute_all
+# get_last_logins
