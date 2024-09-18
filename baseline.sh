@@ -420,7 +420,7 @@ get_last_modified() {
 # -----------------------------------------------------------
 # SESSIONS
 # -----------------------------------------------------------
-get_sessions() {
+get_remote_sessions() {
   
   echo $(log_header "REMOTE SESSIONS")
   echo
@@ -458,7 +458,8 @@ execute_all() {
   get_installed_software
   get_cron_jobs
   get_network
-  get_sessions
+  get_remote_sessions
+  get_last_logins
 
   echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
