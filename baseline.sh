@@ -515,15 +515,29 @@ get_wordpress_logs() {
 
   if [ -f "$log_file" ]; then
     if cat $log_file | head -n 10 | egrep -q "wp-admin|wp-login|wp-content|wp"; then
-      plugins="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "plugins" )"
-      theme="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "theme" )"
-    
       echo -e "$(log_value "Plugins" "")"
-      echo "$plugins"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "plugins" | head -n 10 )"
+      echo "$query"
       echo
 
       echo -e "$(log_value "Themes" "")"
-      echo "$theme"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "theme" | head -n 10 )"
+      echo "$query"
+      echo
+
+      echo -e "$(log_value "Potential Shells" "")"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep "c99.php|shell.php|shell=|exec=|cmd=|act=|ls|cd|ip|whoami|nc|pwd" | head -n 10 )"
+      echo "$query"
+      echo
+
+      echo -e "$(log_value "Anomalous Extensions" "")"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep "\.(exe|sh|bin|zip|tar|gz|rar|pl|py|rb|log|bak)$" | head -n 10 )"
+      echo "$query"
+      echo
+
+      echo -e "$(log_value "Uploaded Content" "")"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep "wp-content/uploads" | tail -n 10 )"
+      echo "$query"
     else
       echo "Does not appear to be a WordPress site..."
     fi
@@ -539,7 +553,7 @@ execute_all() {
   get_users
   get_sudoers
   get_installed_software
-  # get_cron_jobs
+  get_cron_jobs
   get_network
   get_remote_sessions
   get_last_logins
@@ -550,4 +564,3 @@ execute_all() {
 }
 
 execute_all
-# get_last_logins
