@@ -586,6 +586,7 @@ execute_all() {
   get_device_settings
   get_users
   get_sudoers
+  get_command_history
   get_installed_software
   get_cron_jobs
   get_network
@@ -593,7 +594,6 @@ execute_all() {
   get_last_logins
   get_web_logs
   get_wordpress_logs
-  get_command_history
 
   echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
