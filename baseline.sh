@@ -548,6 +548,40 @@ get_wordpress_logs() {
   echo
 }
 
+# -----------------------------------------------------------
+# Command History
+# -----------------------------------------------------------
+get_command_history() {
+  echo $(log_header "Command History")
+  echo
+
+  local users=$(egrep "bash|zsh" $MOUNT_POINT/etc/passwd)
+
+  for line in $users; do
+    local id=$(echo "${line}" | cut -d ":" -f 2)
+    local user=$(echo "${line}" | cut -d ":" -f 1)
+    local shell=$(echo "${line}" | cut -d ":" -f 7 | cut -d "/" -f 3)
+    local home="$(grep "^$user" $MOUNT_POINT/etc/passwd | cut -d ":" -f 6)"
+
+    if [ $shell == "zsh" ]; then
+      dir="$home/.zsh_history"
+    else
+      dir="$home/.bash_history"
+    fi
+
+    if [ -f "$dir" ]; then
+      history="$(cat $MOUNT_POINT$dir)"
+    else
+      history="Cannot find history file..."
+    fi
+
+    echo -e "$(log_value "$user ($dir)" "")"
+    echo "$history"
+    echo
+  done
+}
+
+
 execute_all() {
   get_device_settings
   get_users
@@ -559,6 +593,7 @@ execute_all() {
   get_last_logins
   get_web_logs
   get_wordpress_logs
+  get_command_history
 
   echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
