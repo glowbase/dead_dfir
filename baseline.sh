@@ -49,8 +49,16 @@ if [ ! -d "$MOUNT_POINT" ]; then
   exit 1
 fi
 
+get_timezone() {
+  if [ -f "$MOUNT_POINT/etc/timezone" ]; then
+    echo "$(cat $MOUNT_POINT/etc/timezone)"
+  else
+  echo "$(realpath $MOUNT_POINT/etc/localtime | sed 's/.*zoneinfo\///')"
+  fi
+}
+
 # Change timezone based on user input and target
-timezone="$(realpath $MOUNT_POINT/etc/localtime | sed 's/.*zoneinfo\///')"
+timezone="$(get_timezone)"
 
 if [ ! "$TIME_ZONE" ]; then
 	export TZ="$timezone"
@@ -88,18 +96,23 @@ get_device_settings() {
   echo $(log_value "OS Version" "$os_version")
 
   # Kernel Version
-  kernel_ver=$(ls $MOUNT_POINT/lib/modules | cut -d "." -f 1-4)
+  kernel_ver=$(ls $MOUNT_POINT/lib/modules)
   echo $(log_value "Kernel Version" "$kernel_ver")
 
   # Processor Architecture
-  proc_arch=$(ls $MOUNT_POINT/lib/modules | cut -d "." -f 5 )
+  proc_arch="$(ls $MOUNT_POINT/lib/modules | cut -d "." -f 5)"
+
+  if [ ! $proc_arch ]; then
+    proc_arch="$(ls $MOUNT_POINT/lib/modules | cut -d "-" -f 3)"
+  fi
+
   echo $(log_value "Processor Architecture" "$proc_arch")
 
   # Time Zone
   echo $(log_value "Time Zone" "$timezone")
 
   # Last Shutdown
-  last_shutdown=$(last -x -f $MOUNT_POINT/var/log/wtmp | grep shutdown | head -n 1 | cut -d " " -f 7,9-10)
+  last_shutdown=$(last -x -f $MOUNT_POINT/var/log/wtmp  | grep shutdown | head -n 1 | awk '{$1=$2=$3=$4=""; sub(/ -.*$/, ""); print}')
   echo $(log_value "Last Shutdown" "$last_shutdown")
 
   # Hostname
@@ -108,6 +121,8 @@ get_device_settings() {
 
   echo
 }
+
+get_device_settings
 
 # -----------------------------------------------------------
 # USERS
@@ -322,7 +337,7 @@ get_network() {
   rhel="$MOUNT_POINT/etc/sysconfig/network-scripts/ifcfg-*"
 
   if [ -f $debian ]; then
-    echo $debian
+    echo "$(cat $debian)"
   elif [ ! -z "$(cat $rhel)" ]; then
     for config in $(ls $rhel); do
       local uuid="$(get_key "UUID" "$config")"
@@ -402,4 +417,4 @@ execute_all() {
   echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
 
-execute_all
+# execute_all
