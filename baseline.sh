@@ -122,8 +122,6 @@ get_device_settings() {
   echo
 }
 
-get_device_settings
-
 # -----------------------------------------------------------
 # USERS
 # -----------------------------------------------------------
@@ -417,4 +415,4 @@ execute_all() {
   echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
 
-# execute_all
+execute_all
