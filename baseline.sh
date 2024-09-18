@@ -1,6 +1,7 @@
 #!/bin/bash
 
 clear
+export GREP_COLOR="01;35"
 
 MOUNT_POINT="$1"
 TIME_ZONE="$2"
@@ -187,14 +188,17 @@ get_sudoers() {
 # -----------------------------------------------------------
 get_installed_software() {
   echo $(log_header "INSTALLED SOFTWARE")
+  echo
 
-  apt="$MOUNT_POINT/var/log/apt/history.log"
-  yum="$MOUNT_POINT/var/log/yum.log"
+  local dpkg="$MOUNT_POINT/var/log/dpkg.log"
+  local yum="$MOUNT_POINT/var/log/yum.log"
 
-  if [ -f "$apt" ]; then
-    cat "$apt"
+  local software="wget|curl|php|mysql"
+
+  if [ -f "$dpkg" ]; then
+    echo "$(cat "$dpkg" | grep " installed " | egrep --color=always "$software|$" )"
   elif [ -f "$yum" ]; then
-    echo "$(grep -i installed $yum | sed -e 's/Installed: //')"
+    echo "$(grep -i installed $yum | sed -e "s/Installed: //" | egrep --color=always "$software|$")"
   else
     echo "$(log_value "Could't find Installed Software..." "")"
   fi
@@ -209,26 +213,9 @@ get_cron_jobs() {
   echo $(log_header "CRON JOBS")
   echo
 
-  suspicious_patterns=(
-      "wget"
-      "curl"
-      "nc"
-      "bash"
-      "sh"
-      "base64"
-      "eval"
-      "exec"
-      "/tmp/"
-      "/dev/"
-      "perl"
-      "python"
-      "ruby"
-      "nmap"
-      "tftp"
-      "nc"
-  )
+  local patterns="wget|curl|nc|bash|sh|base64|eval|exec|/tmp/|/dev/|perl|python|ruby|nmap|tftp|nc|php"
 
-  cron_files=(
+  local cron_files=(
       "$MOUNT_POINT/etc/crontab"
       "$MOUNT_POINT/etc/cron.d"
       "$MOUNT_POINT/etc/cron.hourly"
@@ -237,80 +224,48 @@ get_cron_jobs() {
       "$MOUNT_POINT/etc/cron.monthly"
   )
 
-  user_cron_directories=(
+  local user_cron_directories=(
       "$MOUNT_POINT/var/spool/cron/crontabs" # Debian/Ubuntu
       "$MOUNT_POINT/var/spool/cron"          # Red Hat/CentOS
   )
 
-  escape_sed_delimiters() {
-      local string="$1"
-      echo "$string" | sed 's/[.[\*^$]/\\&/g'
+  print_crons() {
+    local file=$1
+
+    echo -e $(log_value "$file" "")
+    echo "$(cat "$file" | grep -v "#" | egrep --color=always "$patterns" )"
+    echo
   }
 
-  is_suspicious() {
-      local line="$1"
+  scan_crons() {
+    local path="$1"
 
-    for pattern in "${suspicious_patterns[@]}"; do
-      if echo "$line" | grep -q "$pattern"; then
-        return 0
-      fi
-    done
-
-      return 1
+    if [ -f "$path" ]; then
+      print_crons "$path"
+    elif [ -d "$path" ]; then
+      for file in "$path"/*; do
+        if [ -f "$file" ]; then
+          print_crons "$file"
+        fi
+      done
+    fi
   }
 
-  scan_cron_jobs() {
-      local path="$1"
-
-      if [ -f "$path" ]; then
-          echo -e $(log_value "$file" "")
-
-          while IFS= read -r line; do
-            if is_suspicious "$line"; then
-              echo "$line"
-            fi
-          done < "$path"
-
-      echo
-      elif [ -d "$path" ]; then
-          for file in "$path"/*; do
-              if [ -f "$file" ]; then
-                  echo -e $(log_value "$file" "")
-
-                  while IFS= read -r line; do
-                      if is_suspicious "$line"; then
-                          echo "$line"
-                      fi
-                  done < "$file"
-
-          echo
-              fi
-          done
-      fi
-  }
-
-  found_suspicious=false
   for file in "${cron_files[@]}"; do
-      if [ -e "$file" ]; then
-          scan_cron_jobs "$file"
-          found_suspicious=true
-      fi
+    if [ -e "$file" ]; then
+      scan_crons "$file"
+    fi
   done
 
   for dir in "${user_cron_directories[@]}"; do
-      if [ -d "$dir" ]; then
-          for user_cron in "$dir"/*; do
-              if [ -f "$user_cron" ]; then
-                  scan_cron_jobs "$user_cron"
-                  found_suspicious=true
-              fi
-          done
-      fi
+    if [ -d "$dir" ]; then
+      for user_cron in "$dir"/*; do
+        if [ -f "$user_cron" ]; then
+          scan_crons "$user_cron"
+        fi
+      done
+    fi
   done
-
-  if [ "$found_suspicious" = false ]; then
-      echo "No Suspicious Crons Found..."
-  fi
 }
 
 # -----------------------------------------------------------
@@ -500,6 +455,7 @@ get_web_logs() {
     echo
   else
     echo "Apache logs do not exist..."
+    echo
   fi
 }
 
@@ -515,27 +471,27 @@ get_wordpress_logs() {
   if [ -f "$log_file" ]; then
     if cat $log_file | head -n 10 | egrep -q "wp-admin|wp-login|wp-content|wp"; then
       echo -e "$(log_value "Plugins" "")"
-      query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "plugins" | head -n 10 )"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep --color=always "plugins" | head -n 10 )"
       echo "$query"
       echo
 
       echo -e "$(log_value "Themes" "")"
-      query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "theme" | head -n 10 )"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep --color=always "theme" | head -n 10 )"
       echo "$query"
       echo
 
       echo -e "$(log_value "Potential Shells" "")"
-      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep "c99.php|shell.php|shell=|exec=|cmd=|act=|ls|cd|ip|whoami|nc|pwd" | head -n 10 )"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "c99.php|shell.php|shell=|exec=|cmd=|act=|whoami|pwd" | head -n 10 )"
       echo "$query"
       echo
 
       echo -e "$(log_value "Anomalous Extensions" "")"
-      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep "\.(exe|sh|bin|zip|tar|gz|rar|pl|py|rb|log|bak)$" | head -n 10 )"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "\.(exe|sh|bin|zip|tar|gz|rar|pl|py|rb|log|bak)$" | head -n 10 )"
       echo "$query"
       echo
 
       echo -e "$(log_value "Uploaded Content" "")"
-      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep "wp-content/uploads" | tail -n 10 )"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "wp-content/uploads" | tail -n 10 )"
       echo "$query"
     else
       echo "Does not appear to be a WordPress site..."
@@ -589,15 +545,20 @@ get_apache_config() {
 
   local dir="$MOUNT_POINT/etc/apache2/sites-enabled"
 
-  for file in "$dir"/*; do
-    if [ -f "$file" ]; then
-      local filename="$(basename "$file")"
+  if [ -d "$dir" ]; then
+    for file in "$dir"/*; do
+      if [ -f "$file" ]; then
+        local filename="$(basename "$file")"
 
-      echo -e "$(log_value "$filename" "")"
-      echo "$(cat $file | grep -v "#")"
-      echo
-    fi
-  done
+        echo -e "$(log_value "$filename" "")"
+        echo "$(cat $file | grep -v "#")"
+        echo
+      fi
+    done
+  else
+    echo "Apache is not installed..."
+    echo
+  fi
 }
 
 execute_all() {
