@@ -12,12 +12,12 @@ sudo ./baseline.sh /mnt/<drive>
 - [x] Device Settings (OS, Kernel, Processor, Time Zone, Last Shutdown)
 - [x] Users (Username, UID, Groups, Shell)
 - [x] Sudoers (Look in `/etc/sudoers.d`)
-- [ ] Installed Software (Install Date, Name, Version)
+- [x] Installed Software (Install Date, Name, Version)
 - [x] Persistence Mechanisms (Cron)
-- [ ] Network Configuration
+- [x] Network Configuration
 - [ ] System Logs (Detect Anomalous Behavior)
 - [ ] Web Server (Configuration, Logs)
 - [ ] Database Server (Configuration, Logs)
-- [ ] User Profiles
-- [ ] User CLI History (Bash, Zsh)
+- [x] User Profiles
+- [x] User CLI History (Bash, Zsh)
 - [ ] Last Modified Files
