@@ -366,6 +366,8 @@ get_network() {
       else
         echo -e "  ${BOLD}Type:${RESET} $type"
       fi
+
+      echo
     done <<< "$interfaces"
   elif [ ! -z "$(cat $rhel)" ]; then
     for config in $(ls $rhel); do
@@ -401,8 +403,6 @@ get_network() {
     echo
   fi
 }
-
-get_network
 
 # -----------------------------------------------------------
 # LAST MODIFIED
@@ -463,4 +463,4 @@ execute_all() {
   echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
 
-# execute_all
+execute_all
