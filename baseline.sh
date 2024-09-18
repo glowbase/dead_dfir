@@ -539,49 +539,30 @@ get_wordpress_logs() {
 # -----------------------------------------------------------
 get_command_history() {
   echo $(log_header "Command History")
+  echo
 
-  local users=$(egrep "bash|zsh" $MOUNT_POINT/etc/passwd | cut -d ":" -f 1,3)
+  local users=$(egrep "bash|zsh" $MOUNT_POINT/etc/passwd)
 
-  for userid in $users; do
-    id=$(echo "${userid}" | cut -d ":" -f 2)
-    user=$(echo "${userid}" | cut -d ":" -f 1)
-    shell=$(echo "${userid}" | cut -d ":" -f 7)
-    home="$(grep "^$user" $MOUNT_POINT/etc/passwd | cut -d ":" -f 6)"
+  for line in $users; do
+    local id=$(echo "${line}" | cut -d ":" -f 2)
+    local user=$(echo "${line}" | cut -d ":" -f 1)
+    local shell=$(echo "${line}" | cut -d ":" -f 7 | cut -d "/" -f 3)
+    local home="$(grep "^$user" $MOUNT_POINT/etc/passwd | cut -d ":" -f 6)"
 
-    zsh="/.zsh_history"
-    bash="/.bash_history"
-    used=""
-    unused=""
-
-    if [ $shell=="*zsh*" ]; then
-      used="$MOUNT_POINT$home$zsh"
-      unused="$MOUNT_POINT$home$bash"
+    if [ $shell == "zsh" ]; then
+      dir="$home/.zsh_history"
     else
-      used="$MOUNT_POINT$home$bash"
-      unused="$MOUNT_POINT$home$zsh"
+      dir="$home/.bash_history"
     fi
 
-    if [ -f "$used" ]; then
-      used_log="$(cat $used)"
+    if [ -f "$dir" ]; then
+      history="$(cat $MOUNT_POINT$dir)"
     else
-      used_log="No History File Found for $used"
+      history="Cannot find history file..."
     fi
 
-    if [ -f "$unused" ]; then 
-      unused_log="$(cat $unused)"
-    else
-      unused_log="No History File Found for $unused"
-    fi
-
-    echo -e "$(log_value "$user ($id)" "")"
-    echo -e "  ${BOLD}"Used Shell"  "
-    echo
-    echo -e "$used_log"
-    echo
-    echo -e "  ${BOLD}"Unused Shell"  "
-    echo
-    echo -e "$unused_log"
-    echo
+    echo -e "$(log_value "$user ($dir)" "")"
+    echo "$history"
     echo
   done
 }
