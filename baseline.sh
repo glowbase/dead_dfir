@@ -187,7 +187,6 @@ get_sudoers() {
 # -----------------------------------------------------------
 get_installed_software() {
   echo $(log_header "INSTALLED SOFTWARE")
-  echo
 
   apt="$MOUNT_POINT/var/log/apt/history.log"
   yum="$MOUNT_POINT/var/log/yum.log"
@@ -549,10 +548,10 @@ get_wordpress_logs() {
 }
 
 # -----------------------------------------------------------
-# Command History
+# COMMAND HISTORY
 # -----------------------------------------------------------
 get_command_history() {
-  echo $(log_header "Command History")
+  echo $(log_header "COMMAND HISTORY")
   echo
 
   local users=$(egrep "bash|zsh" $MOUNT_POINT/etc/passwd)
@@ -581,6 +580,25 @@ get_command_history() {
   done
 }
 
+# -----------------------------------------------------------
+# APACHE CONFIG
+# -----------------------------------------------------------
+get_apache_config() {
+  echo $(log_header "APACHE CONFIG")
+  echo
+
+  local dir="$MOUNT_POINT/etc/apache2/sites-enabled"
+
+  for file in "$dir"/*; do
+    if [ -f "$file" ]; then
+      local filename="$(basename "$file")"
+
+      echo -e "$(log_value "$filename" "")"
+      echo "$(cat $file | grep -v "#")"
+      echo
+    fi
+  done
+}
 
 execute_all() {
   get_device_settings
@@ -592,6 +610,7 @@ execute_all() {
   get_network
   get_remote_sessions
   get_last_logins
+  get_apache_config
   get_web_logs
   get_wordpress_logs
 
