@@ -16,7 +16,7 @@ sudo ./baseline.sh /mnt/<drive>
 - [x] Persistence Mechanisms (Cron)
 - [x] Network Configuration
 - [ ] System Logs (Detect Anomalous Behavior)
-- [ ] Web Server (Configuration, Logs)
+- [x] Web Server (Configuration, Logs)
 - [ ] Database Server (Configuration, Logs)
 - [x] User Profiles
 - [x] User CLI History (Bash, Zsh)
