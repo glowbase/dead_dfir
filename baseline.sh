@@ -470,7 +470,7 @@ get_wordpress_logs() {
   local log_file="$MOUNT_POINT/var/log/apache2/access.log"
 
   if [ -f "$log_file" ]; then
-    if cat $log_file | head -n 10 | egrep -q "wp-admin|wp-login|wp-content|wp"; then
+    # if cat $log_file | head -n 10 | egrep -q "wp-admin|wp-login|wp-content|wp"; then
       echo -e "$(log_value "Plugins" "")"
       query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "plugins" | head -n 10 )"
       echo "$query"
@@ -494,9 +494,9 @@ get_wordpress_logs() {
       echo -e "$(log_value "Uploaded Content" "")"
       query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep "wp-content/uploads" | tail -n 10 )"
       echo "$query"
-    else
-      echo "Does not appear to be a WordPress site..."
-    fi
+    # else
+    #   echo "Does not appear to be a WordPress site..."
+    # fi
   else
     echo "Apache logs do not exist..."
   fi
