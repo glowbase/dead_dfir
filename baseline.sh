@@ -450,10 +450,7 @@ get_web_logs() {
     echo
 
     echo -e "$(log_value "Possible Brute-Force Attempts" "")"
-    awk '{print $1, $4}' "$log_file" | \
-        sed 's/\[//; s/\]//; s/:/ /; s/\// /g' | \
-        awk '{print $1, $2, $3, $4, $5}' | \
-        sort | uniq -c | sort -nr | head -n 10
+    awk '{print $1, $4}' "$log_file" | sed 's/\[//; s/\]//; s/:/ /; s/\// /g' | awk '{print $1, $2, $3, $4, $5}' | sort | uniq -c | sort -nr | head -n 10
     echo
   else
     echo "Apache logs do not exist..."
@@ -483,7 +480,7 @@ get_wordpress_logs() {
       echo
 
       echo -e "$(log_value "Potential Shells" "")"
-      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "c99.php|shell.php|shell=|exec=|cmd=|act=|whoami|pwd" | head -n 10 )"
+      query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "c99.php|shell.php|shell=|exec=|cmd=|act=|whoami|pwd|base64" | head -n 10 )"
       echo "$query"
       echo
 
