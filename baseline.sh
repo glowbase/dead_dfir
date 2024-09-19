@@ -122,7 +122,7 @@ get_device_settings() {
   echo $(log_value "Time Zone" "$timezone")
 
   # Last Shutdown
-  last_shutdown=$(last -x -f $MOUNT_POINT/var/log/wtmp  | grep shutdown | head -n 1 | awk '{$1=$2=$3=$4=""; sub(/ -.*$/, ""); print}')
+  last_shutdown=$(last -x -f $MOUNT_POINT/var/log/wtmp | egrep "shutdown|reboot" | head -n 1 | awk '{$1=$2=$3=$4=""; sub(/ -.*$/, ""); print}')
   echo $(log_value "Last Shutdown" "$last_shutdown")
 
   # Hostname
@@ -161,6 +161,7 @@ get_users() {
     echo -e "  ${BOLD}Password: ${RESET}$pass_enabled"
     echo -e "  ${BOLD}Disabled: ${RESET}${dis_enabled}"
     echo -e "  ${BOLD}Groups: ${RESET}$groups"
+    echo -e "  ${BOLD}Home: ${RESET}$home"
     echo
   done
 }
