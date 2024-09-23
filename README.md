@@ -21,3 +21,16 @@ sudo ./baseline.sh /mnt/<drive>
 - [x] User Profiles
 - [x] User CLI History (Bash, Zsh)
 - [ ] Last Modified Files
+- [ ] List sudo users
+- [x] Format last shutdown
+- [ ] Fix bash history
+- [ ] Fix remote sessions (show more/pertinent information)
+- [ ] Detect malicious activity using ruleset
+- [ ] More features in web logs
+- [ ] Analyse auth logs
+- [ ] passwd/shadow/group changes (diff/stat)
+- [ ] Fix web brute force attempts
+- [ ] Add SSH brute force attempts
+- [ ] Fix last logins
+- [ ] Add auto mount for E01 files
+- [ ] Hash E01 file
