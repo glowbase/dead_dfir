@@ -122,8 +122,10 @@ get_device_settings() {
   echo $(log_value "Time Zone" "$timezone")
 
   # Last Shutdown
-  last_shutdown=$(last -x -f $MOUNT_POINT/var/log/wtmp | egrep "shutdown|reboot" | head -n 1 | awk '{$1=$2=$3=$4=""; sub(/ -.*$/, ""); print}')
-  echo $(log_value "Last Shutdown" "$last_shutdown")
+  shutdown=$(last -x -f $MOUNT_POINT/var/log/wtmp | egrep "shutdown|reboot" | head -n 1 | sed 's/  / /g' | cut -d " " -f 1,6-10)
+  shutdown_time=$(echo $shutdown | cut -d " " -f 2-5)
+  shutdown_type=$(echo $shutdown | cut -d " " -f 1)
+  echo $(log_value "Last Shutdown" "$shutdown_time ($shutdown_type)")
 
   # Hostname
   hostname=$(cat $MOUNT_POINT/etc/hostname)
@@ -173,13 +175,16 @@ get_sudoers() {
   echo $(log_header "SUDOERS")
   echo
 
-  if [ -f "$MOUNT_POINT/etc/sudoers" ]; then
+  if [ -d "$MOUNT_POINT/etc/sudoers" ]; then
     sudoers="$(grep -v "#" $MOUNT_POINT/etc/sudoers | egrep -v "^$|Defaults")"
 
     echo "$sudoers" | sed -e 's/^[%@]*\([a-zA-Z0-9_-]*\)[ \t]*\(.*\)/\x1b[1;35m\1\x1b[0m \2/'
   else
-    echo $(log_value "'/etc/sudoers' file not found..." "")
+    echo "'/etc/sudoers' file not found..."
   fi
+
+  echo $(log_value "" "")
+  
 
   echo
 }
