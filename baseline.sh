@@ -175,7 +175,7 @@ get_sudoers() {
   echo $(log_header "SUDOERS")
   echo
 
-  if [ -d "$MOUNT_POINT/etc/sudoers" ]; then
+  if [ "$MOUNT_POINT/etc/sudoers" ]; then
     sudoers="$(grep -v "#" $MOUNT_POINT/etc/sudoers | egrep -v "^$|Defaults")"
 
     echo "$sudoers" | sed -e 's/^[%@]*\([a-zA-Z0-9_-]*\)[ \t]*\(.*\)/\x1b[1;35m\1\x1b[0m \2/'
@@ -519,7 +519,7 @@ get_command_history() {
   for line in $users; do
     local id=$(echo "${line}" | cut -d ":" -f 2)
     local user=$(echo "${line}" | cut -d ":" -f 1)
-    local shell=$(echo "${line}" | cut -d ":" -f 7 | cut -d "/" -f 3)
+    local shell=$(echo "${line}" | cut -d ":" -f 7 | egrep "bash|zsh)
     local home="$(grep "^$user" $MOUNT_POINT/etc/passwd | cut -d ":" -f 6)"
 
     if [ $shell == "zsh" ]; then
