@@ -190,6 +190,36 @@ get_sudoers() {
 }
 
 # -----------------------------------------------------------
+# BACKUP DIFF
+# -----------------------------------------------------------
+
+get_backup_diff() {
+  echo $(log_header "BACKUP DIFF")
+  echo
+
+  for name in "shadow" "passwd" "group"; do
+
+    local file="$MOUNT_POINT/etc/$name"
+
+    if [ -f "$file-" ]; then
+      echo -e "$(log_value "$name" "")"
+      echo "$(diff $file- $file)"
+      echo
+    elif [ -f "$file~" ]; then
+      echo -e "$(log_value "$name" "")"
+      echo "$(diff $file~ $file)"
+      echo
+    else
+      echo -e "$(log_value "$name" "")"
+      echo "No $name file backup found..."
+      echo
+    fi
+
+  done
+
+}
+
+# -----------------------------------------------------------
 # INSTALLED SOFTWARE
 # -----------------------------------------------------------
 get_installed_software() {
@@ -519,7 +549,7 @@ get_command_history() {
   for line in $users; do
     local id=$(echo "${line}" | cut -d ":" -f 2)
     local user=$(echo "${line}" | cut -d ":" -f 1)
-    local shell=$(echo "${line}" | cut -d ":" -f 7 | egrep "bash|zsh)
+    local shell=$(echo "${line}" | cut -d ":" -f 7 | egrep "bash|zsh")
     local home="$(grep "^$user" $MOUNT_POINT/etc/passwd | cut -d ":" -f 6)"
 
     if [ $shell == "zsh" ]; then
@@ -569,6 +599,7 @@ execute_all() {
   get_device_settings
   get_users
   get_sudoers
+  get_backup_diff
   get_command_history
   get_installed_software
   get_cron_jobs
