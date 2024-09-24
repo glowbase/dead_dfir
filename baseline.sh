@@ -183,9 +183,15 @@ get_sudoers() {
     echo "'/etc/sudoers' file not found..."
   fi
 
-  echo $(log_value "" "")
-  
+  if [ "$MOUNT_POINT/etc/group" ]; then
+    echo
+    echo $(log_value "Sudoers" "")
 
+    local admins="$(egrep -i "^sudo|^admin|^wheel" "$MOUNT_POINT/etc/group")"
+    
+    echo "${admins##*:}" | tr ',' '\n'
+
+  fi
   echo
 }
 
