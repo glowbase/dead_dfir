@@ -184,13 +184,17 @@ get_sudoers() {
   fi
 
   if [ "$MOUNT_POINT/etc/group" ]; then
-    echo
-    echo $(log_value "Sudoers" "")
 
     local admins="$(egrep -i "^sudo|^admin|^wheel" "$MOUNT_POINT/etc/group")"
     
-    echo "${admins##*:}" | tr ',' '\n'
+    for group in $admins; do
+    groupname="${group%%:*}"
 
+    echo
+    echo $(log_value "$groupname" "")
+    echo "${group##*:}" | tr ',' '\n'
+
+    done
   fi
   echo
 }
