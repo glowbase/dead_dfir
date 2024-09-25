@@ -1,3 +1,5 @@
 *.dd
-mount.sh
-fa8_mount.sh
+*.mem
+*.E01
+*.out
+memory.sh
