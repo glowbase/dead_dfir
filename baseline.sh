@@ -173,27 +173,16 @@ get_users() {
 # -----------------------------------------------------------
 get_sudoers() {
 	echo $(log_header "SUDOERS")
-	echo
-
-	if [ "$MOUNT_POINT/etc/sudoers" ]; then
-		sudoers="$(grep -v "#" $MOUNT_POINT/etc/sudoers | egrep -v "^$|Defaults")"
-
-		echo "$sudoers" | sed -e 's/^[%@]*\([a-zA-Z0-9_-]*\)[ \t]*\(.*\)/\x1b[1;35m\1\x1b[0m \2/'
-	else
-		echo "'/etc/sudoers' file not found..."
-	fi
 
 	if [ "$MOUNT_POINT/etc/group" ]; then
-
 		local admins="$(egrep -i "^sudo|^admin|^wheel" "$MOUNT_POINT/etc/group")"
 		
 		for group in $admins; do
-		groupname="${group%%:*}"
+			groupname="${group%%:*}"
 
-		echo
-		echo $(log_value "$groupname" "")
-		echo "${group##*:}" | tr ',' '\n'
-
+			echo
+			echo $(log_value "$groupname" "")
+			echo "${group##*:}" | tr ',' '\n'
 		done
 	fi
 	echo
@@ -208,25 +197,26 @@ get_backup_diff() {
 	echo
 
 	for name in "shadow" "passwd" "group"; do
-
 		local file="$MOUNT_POINT/etc/$name"
 
 		if [ -f "$file-" ]; then
 			echo -e "$(log_value "$name" "")"
-			echo "$(diff $file- $file)"
+			echo "Modified: $(stat $file | grep Modify | cut -d " " -f 2-3 | cut -d "." -f 1)"
+			echo
+			echo "$(diff $file- $file | egrep "<|>|-" | egrep --color=always ">*|$")"
 			echo
 		elif [ -f "$file~" ]; then
 			echo -e "$(log_value "$name" "")"
-			echo "$(diff $file~ $file)"
+			echo "Modified: $(stat $file | grep Modify | cut -d " " -f 2-3 | cut -d "." -f 1)"
+			echo
+			echo "$(diff $file~ $file | egrep "<|>|-" | egrep --color=always ">*|$")"
 			echo
 		else
 			echo -e "$(log_value "$name" "")"
 			echo "No $name file backup found..."
 			echo
 		fi
-
 	done
-
 }
 
 # -----------------------------------------------------------
@@ -448,31 +438,41 @@ get_last_logins() {
 
 	local output="$(lastlog -R $MOUNT_POINT | egrep -v "\*\*Never")"
 
-	while IFS= read -r line; do
-		if [ "$(echo $line | egrep -v "Username|Port|From|Latest")" ]; then
-			is_ip="$(echo $line | grep -oP '\b\d{1,3}(\.\d{1,3}){3}\b')"
+	if [ "$MOUNT_POINT/var/log/lastlog" ]; then
+		if [ "$output" ]; then
+			while IFS= read -r line; do
+				if [ "$(echo $line | egrep -v "Username|Port|From|Latest")" ]; then
+					is_ip="$(echo $line | grep -oP '\b\d{1,3}(\.\d{1,3}){3}\b')"
 
-			local user="$(echo $line | cut -d " " -f 1)"
-			local type="$(echo $line | cut -d " " -f 2)"
+					local user="$(echo $line | cut -d " " -f 1)"
+					local type="$(echo $line | cut -d " " -f 2)"
 
-				echo -e "${BOLD_PINK}$user${RESET}:"
-				echo -e "  ${BOLD}Type: ${RESET}$type"
-			if [ "$is_ip" ]; then
-				local from="$(echo $line | cut -d " " -f 3)"
-				local date_time="$(echo $line | cut -d " " -f 4-10)"
+						echo -e "${BOLD_PINK}$user${RESET}:"
+						echo -e "  ${BOLD}Type: ${RESET}$type"
+					if [ "$is_ip" ]; then
+						local from="$(echo $line | cut -d " " -f 3)"
+						local date_time="$(echo $line | cut -d " " -f 4-10)"
 
-				echo -e "  ${BOLD}From: ${RESET}$from (Remote)"
-				echo -e "  ${BOLD}Date/Time: ${RESET}$date_time"
-				echo
-			else
-				local date_time="$(echo $line | cut -d " " -f 3-10)"
+						echo -e "  ${BOLD}From: ${RESET}$from (Remote)"
+						echo -e "  ${BOLD}Date/Time: ${RESET}$date_time"
+						echo
+					else
+						local date_time="$(echo $line | cut -d " " -f 3-10)"
 
-				echo -e "  ${BOLD}From: ${RESET}Local"
-				echo -e "  ${BOLD}Date/Time: ${RESET}$date_time"
-				echo
-			fi
+						echo -e "  ${BOLD}From: ${RESET}Local"
+						echo -e "  ${BOLD}Date/Time: ${RESET}$date_time"
+						echo
+					fi
+				fi
+			done <<< "$output"
+		else
+			echo "/var/log/lastlog is empty..."
+			echo
 		fi
-	done <<< "$output"
+	else
+		echo "/var/log/lastlog does not exist..."
+		echo
+	fi
 }
 
 # -----------------------------------------------------------
@@ -493,10 +493,6 @@ get_web_logs() {
 		local anomalous_useragents="wpscan"
 		awk -F '"' '{print $6}' "$log_file" | sort | uniq -c | sort -nr | head -n 10 | egrep --color=always -i "$anomalous_useragents|$"
 		echo
-
-		echo -e "$(log_value "Possible Brute-Force Attempts" "")"
-		awk '{print $1, $4}' "$log_file" | sed 's/\[//; s/\]//; s/:/ /; s/\// /g' | awk '{print $1, $2, $3, $4, $5}' | sort | uniq -c | sort -nr | head -n 10
-		echo
 	else
 		echo "Apache logs do not exist..."
 		echo
@@ -504,42 +500,38 @@ get_web_logs() {
 }
 
 # -----------------------------------------------------------
-# WORDPRESS
+# APACHE
 # -----------------------------------------------------------
-get_wordpress_logs() {
-	echo $(log_header "WORDPRESS")
+get_apache_logs() {
+	echo $(log_header "APACHE")
 	echo
 
 	local log_file="$MOUNT_POINT/var/log/apache2/access.log"
 
 	if [ -f "$log_file" ]; then
-		# if cat $log_file | head -n 10 | egrep -q "wp-admin|wp-login|wp-content|wp"; then
-			echo -e "$(log_value "Plugins" "")"
-			query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "plugins" | head -n 10 )"
-			echo "$query"
-			echo
+		echo -e "$(log_value "Plugins" "")"
+		query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "plugins" | head -n 10 )"
+		echo "$query"
+		echo
 
-			echo -e "$(log_value "Themes" "")"
-			query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "theme" | head -n 10 )"
-			echo "$query"
-			echo
+		echo -e "$(log_value "Themes" "")"
+		query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "theme" | head -n 10 )"
+		echo "$query"
+		echo
 
-			echo -e "$(log_value "Potential Shells" "")"
-			query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "c99.php|shell.php|shell=|exec=|cmd=|act=|whoami|pwd|base64" | head -n 10 )"
-			echo "$query"
-			echo
+		echo -e "$(log_value "Potential Shells" "")"
+		query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "c99.php|shell.php|shell=|exec=|cmd=|act=|whoami|pwd|base64" | head -n 10 )"
+		echo "$query"
+		echo
 
-			echo -e "$(log_value "Anomalous Extensions" "")"
-			query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "\.(exe|sh|bin|zip|tar|gz|rar|pl|py|rb|log|bak)$" | head -n 10 )"
-			echo "$query"
-			echo
+		echo -e "$(log_value "Anomalous Extensions" "")"
+		query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "\.(exe|sh|bin|zip|tar|gz|rar|pl|py|rb|log|bak)$" | head -n 10 )"
+		echo "$query"
+		echo
 
-			echo -e "$(log_value "Uploaded Content" "")"
-			query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep "wp-content/uploads" | tail -n 10 )"
-			echo "$query"
-		# else
-		#   echo "Does not appear to be a WordPress site..."
-		# fi
+		echo -e "$(log_value "Uploaded Content" "")"
+		query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep "wp-content/uploads" | tail -n 10 )"
+		echo "$query"
 	else
 		echo "Apache logs do not exist..."
 	fi
@@ -618,7 +610,7 @@ execute_all() {
 	get_last_logins
 	get_apache_config
 	get_web_logs
-	get_wordpress_logs
+	get_apache_logs
 
 	echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
