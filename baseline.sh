@@ -547,6 +547,7 @@ get_command_history() {
 	echo
 
 	local users=$(egrep "bash|zsh" $MOUNT_POINT/etc/passwd)
+	local keywords="/tmp|/etc|whoami|id|passwd"
 
 	for line in $users; do
 		local id=$(echo "${line}" | cut -d ":" -f 2)
@@ -561,7 +562,7 @@ get_command_history() {
 		fi
 
 		if [ -f "$dir" ]; then
-			history="$(cat $MOUNT_POINT$dir)"
+			history="$(cat $MOUNT_POINT$dir | egrep --color=always "$keywords|$")"
 		else
 			history="Cannot find history file..."
 		fi
