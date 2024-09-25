@@ -493,22 +493,7 @@ get_web_logs() {
 		local anomalous_useragents="wpscan"
 		awk -F '"' '{print $6}' "$log_file" | sort | uniq -c | sort -nr | head -n 10 | egrep --color=always -i "$anomalous_useragents|$"
 		echo
-	else
-		echo "Apache logs do not exist..."
-		echo
-	fi
-}
 
-# -----------------------------------------------------------
-# APACHE
-# -----------------------------------------------------------
-get_apache_logs() {
-	echo $(log_header "APACHE")
-	echo
-
-	local log_file="$MOUNT_POINT/var/log/apache2/access.log"
-
-	if [ -f "$log_file" ]; then
 		echo -e "$(log_value "Plugins" "")"
 		query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "plugins" | head -n 10 )"
 		echo "$query"
@@ -534,9 +519,8 @@ get_apache_logs() {
 		echo "$query"
 	else
 		echo "Apache logs do not exist..."
+		echo
 	fi
-
-	echo
 }
 
 # -----------------------------------------------------------
@@ -611,7 +595,6 @@ execute_all() {
 	get_last_logins
 	get_apache_config
 	get_web_logs
-	get_apache_logs
 
 	echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
