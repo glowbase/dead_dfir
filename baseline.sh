@@ -483,29 +483,39 @@ get_web_logs() {
 		awk -F '"' '{print $6}' "$log_file" | sort | uniq -c | sort -nr | head -n 10 | egrep --color=always -i "$anomalous_useragents|$"
 		echo
 
-		echo -e "$(log_value "Plugins" "")"
 		query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "plugins" | head -n 10 )"
-		echo "$query"
+		if [ ! -z "$query" ]; then
+			echo -e "$(log_value "Plugins" "")"
+			echo "$query"
+		fi
 		echo
 
-		echo -e "$(log_value "Themes" "")"
 		query="$(cat $log_file | cut -d " " -f 1,4-7 | grep "POST" | grep "theme" | head -n 10 )"
-		echo "$query"
+		if [ ! -z "$query" ]; then
+			echo -e "$(log_value "Themes" "")"
+			echo "$query"
+		fi
 		echo
 
-		echo -e "$(log_value "Potential Shells" "")"
-		query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "c99.php|shell.php|shell=|exec=|cmd=|act=|whoami|pwd|base64" | head -n 10 )"
-		echo "$query"
+		query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "c99.php|shell.php|shell=|exec=|cmd=|act=|whoami|pwd|base64|eval" | head -n 10 )"
+		if [ ! -z "$query" ]; then
+			echo -e "$(log_value "Potential Shells" "")"
+			echo "$query"
+		fi
 		echo
 
-		echo -e "$(log_value "Anomalous Extensions" "")"
 		query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep --color=always "\.(exe|sh|bin|zip|tar|gz|rar|pl|py|rb|log|bak)$" | head -n 10 )"
-		echo "$query"
+		if [ ! -z "$query" ]; then
+			echo -e "$(log_value "Anomalous Extensions" "")"
+			echo "$query"
+		fi
 		echo
 
-		echo -e "$(log_value "Uploaded Content" "")"
 		query="$(cat $log_file | cut -d " " -f 1,4-7 | egrep "wp-content/uploads" | tail -n 10 )"
-		echo "$query"
+		if [ ! -z "$query"]; then
+			echo -e "$(log_value "Uploaded Content" "")"
+			echo "$query"
+		fi
 	else
 		echo "Apache logs do not exist..."
 		echo
@@ -547,6 +557,18 @@ get_command_history() {
 }
 
 # -----------------------------------------------------------
+# TEMPORARY FILES
+# -----------------------------------------------------------
+get_temp_files() {
+	echo $(log_header "TMP FILES")
+	echo
+
+	echo "$(ls -lh $MOUNT_POINT/tmp)"
+
+	echo
+}
+
+# -----------------------------------------------------------
 # APACHE CONFIG
 # -----------------------------------------------------------
 get_apache_config() {
@@ -574,9 +596,9 @@ get_apache_config() {
 execute_all() {
 	get_device_settings
 	get_users
-	get_sudoers
-	get_backup_diff
 	get_command_history
+	get_temp_files
+	get_backup_diff
 	get_installed_software
 	get_cron_jobs
 	get_network
