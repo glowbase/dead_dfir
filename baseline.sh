@@ -162,30 +162,10 @@ get_users() {
 		echo -e "  ${BOLD}Creation: ${RESET}$creation"
 		echo -e "  ${BOLD}Password: ${RESET}$pass_enabled"
 		echo -e "  ${BOLD}Disabled: ${RESET}${dis_enabled}"
-		echo -e "  ${BOLD}Groups: ${RESET}$groups"
+		echo -e "  ${BOLD}Groups: ${RESET}$(echo $groups | egrep --color=always "sudo|admin|wheel")"
 		echo -e "  ${BOLD}Home: ${RESET}$home"
 		echo
 	done
-}
-
-# -----------------------------------------------------------
-# SUDOERS
-# -----------------------------------------------------------
-get_sudoers() {
-	echo $(log_header "SUDOERS")
-
-	if [ "$MOUNT_POINT/etc/group" ]; then
-		local admins="$(egrep -i "^sudo|^admin|^wheel" "$MOUNT_POINT/etc/group")"
-		
-		for group in $admins; do
-			groupname="${group%%:*}"
-
-			echo
-			echo $(log_value "$groupname" "")
-			echo "${group##*:}" | tr ',' '\n'
-		done
-	fi
-	echo
 }
 
 # -----------------------------------------------------------
@@ -229,12 +209,12 @@ get_installed_software() {
 	local dpkg="$MOUNT_POINT/var/log/dpkg.log"
 	local yum="$MOUNT_POINT/var/log/yum.log"
 
-	local software="wget|curl|php|mysql"
+	local software="wget|curl|php|sql|apache|drupal"
 
 	if [ -f "$dpkg" ]; then
-		echo "$(cat "$dpkg" | grep " installed " | egrep --color=always "$software|$" )"
+		echo "$(cat "$dpkg" | grep " installed " | egrep --color=always "$software" )"
 	elif [ -f "$yum" ]; then
-		echo "$(grep -i installed $yum | sed -e "s/Installed: //" | egrep --color=always "$software|$")"
+		echo "$(grep -i installed $yum | sed -e "s/Installed: //" | egrep --color=always "$software")"
 	else
 		echo "$(log_value "Could't find Installed Software..." "")"
 	fi
@@ -249,7 +229,7 @@ get_cron_jobs() {
 	echo $(log_header "CRON JOBS")
 	echo
 
-	local patterns="wget|curl|nc|bash|sh|base64|eval|exec|/tmp/|/dev/|perl|python|ruby|nmap|tftp|nc|php"
+	local patterns="wget |curl |nc |bash |sh |base64|exec |/tmp/|perl|python|ruby|nmap |tftp|php"
 
 	local cron_files=(
 			"$MOUNT_POINT/etc/crontab"
@@ -267,10 +247,13 @@ get_cron_jobs() {
 
 	print_crons() {
 		local file=$1
-
-		echo -e $(log_value "$file" "")
-		echo "$(cat "$file" | grep -v "#" | egrep --color=always "$patterns" )"
-		echo
+		local result="$(cat "$file" | grep -v "#" | egrep --color=always "$patterns")"
+		
+		if [ ! -z "$result" ]; then
+			echo -e $(log_value "$file" "")
+			echo "$result"
+			echo
+		fi
 	}
 
 	scan_crons() {
@@ -317,8 +300,14 @@ get_network() {
 	echo
 
 	echo $(log_value "DNS" "")
-	dns=$(cat $MOUNT_POINT/etc/resolv.conf | egrep -v "^#")
-	echo "$dns"
+
+	if [ -f "$MOUNT_POINT/etc/resolv.conf" ]; then
+		dns=$(cat $MOUNT_POINT/etc/resolv.conf | egrep -v "^#")
+		echo "$dns"
+	else
+		echo "/etc/resolv.conf file does not exist..."
+	fi
+
 	echo
 
 	echo $(log_value "Interfaces" "")
@@ -418,9 +407,9 @@ get_remote_sessions() {
 	echo
 
 	if [ -e $MOUNT_POINT/var/log/auth.log ]; then
-		output="$(egrep "session opened|session closed" $MOUNT_POINT/var/log/auth.log | awk '{print "state:", $8,"\t|\t", "user:", $11,"\t|\t", "timestamp: ", $1, $2, $3}')"
+		output="$(egrep "session opened|session closed" $MOUNT_POINT/var/log/auth.log | awk '{print "state:", $8,"\t|\t", "user:", $11,"\t|\t", "timestamp: ", $1, $2, $3}' | tail)"
 	elif [ -e $MOUNT_POINT/var/log/secure ]; then
-		output="$(egrep "session opened|session closed" $MOUNT_POINT/var/log/secure | awk '{print "state:", $8,"\t|\t", "user:", $11,"\t|\t", "timestamp: ", $1, $2, $3}')"
+		output="$(egrep "session opened|session closed" $MOUNT_POINT/var/log/secure | awk '{print "state:", $8,"\t|\t", "user:", $11,"\t|\t", "timestamp: ", $1, $2, $3}' | tail)"
 	else
 		output="Cannot find remote session information..."
 	fi
