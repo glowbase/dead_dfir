@@ -225,11 +225,14 @@ mount_image() {
 				lvm_partition=$(echo $((10#$lvm_partition)))
 				# calculate the offset
 				offset=$((lvm_partition * 512))
-				losetup $LOOP_DEVICE -o $lvm_partition $LVM_LOOP_DEVICE
+				losetup $LVM_LOOP_DEVICE -o $offset $LOOP_DEVICE
 			
-				# determine if there are physical volumes on the device
-				echo $pvs
 				vgchange -ay $pvs
+
+				# determine if there are physical volumes on the device
+				pvs=$(pvs 2>/dev/null | grep $LVM_LOOP_DEVICE | grep -i "lvm" | awk '{print $2}' | head -n 1)
+
+				echo $pvs
 				# if pvs is not empty, then there are physical lvm volumes
 				if [ ! -z "$pvs" ]; then
 				
@@ -239,10 +242,9 @@ mount_image() {
 					mount /dev/$pvs/$lv_name -o ro,noload $MOUNT_POINT
 
 					# iterate through the lvs results
-					for lv in $(lvs $pvs 2>/dev/null | grep $pvs | grep -e -v '(swap|root)' | awk '{print $1 $2}'); do
+					for lv in $(lvs $pvs 2>/dev/null | grep $pvs | grep -E -v '(swap|root)' | awk '{print $1 $2}'); do
 						# get the logical volume name
 						lv_name=$(echo $lv | awk '{print $1}')
-						mapper_name=$(echo $lv | awk '{print $2"-"$1}')
 
 						# create a directory for the logical volume
 						mkdir -p $MOUNT_POINT/$lv_name
