@@ -90,12 +90,6 @@ get_birth() {
 	stat "$MOUNT_POINT$home" | grep "Birth" | cut -d " " -f 3,4 | cut -d "." -f 1
 }
 
-# Check if the mount point exists
-if [ ! -d "$MOUNT_POINT" ]; then
-	echo "Error: Mount point $MOUNT_POINT does not exist."
-	exit 1
-fi
-
 get_timezone() {
 	if [ -f "$MOUNT_POINT/etc/timezone" ]; then
 		echo "$(cat $MOUNT_POINT/etc/timezone)"
@@ -104,14 +98,22 @@ get_timezone() {
 	fi
 }
 
-# Change timezone based on user input and target
-timezone="$(get_timezone)"
+initial_checks(){
+	# Check if the mount point exists
+	if [ ! -d "$MOUNT_POINT" ]; then
+		echo "Error: Mount point $MOUNT_POINT does not exist."
+		exit 1
+	fi
 
-if [ ! "$TIME_ZONE" ]; then
-	export TZ="$timezone"
-else 
-	export TZ="$TIME_ZONE"
-fi
+	# Change timezone based on user input and target
+	timezone="$(get_timezone)"
+
+	if [ ! "$TIME_ZONE" ]; then
+		export TZ="$timezone"
+	else 
+		export TZ="$TIME_ZONE"
+	fi
+}
 
 convert_timestamp() {
 	local timestamp="$1"
@@ -796,6 +798,7 @@ execute_all() {
 	if [ $MOUNT_REQUIRED -eq 1 ]; then
 		mount_image
 	fi
+	initial_checks
 	get_device_settings
 	get_users
 	get_command_history
