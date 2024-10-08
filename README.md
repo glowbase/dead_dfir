@@ -11,6 +11,7 @@ sudo ./baseline.sh -m <image_file> /mnt/<mount_point> <time_zone>
 ### Example Usage
 ```bash
 sudo ./baseline.sh /mnt/web_server
+sudo ./baseline.sh /mnt/web_server UTC
 sudo ./baseline.sh -m Webserver.E01 /mnt/web_server
 sudo ./baseline.sh -m Webserver.E01 /mnt/web_server UTC
 ```
