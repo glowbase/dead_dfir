@@ -726,11 +726,10 @@ get_command_history() {
 	echo $(log_header "COMMAND HISTORY")
 	echo
 
-	local users=$(egrep "(bash|zsh)" $MOUNT_POINT/etc/passwd)
+	local users=$(egrep "(bash|zsh)" $MOUNT_POINT/etc/passwd | tr -d ' ')
 	local keywords="/tmp|/etc|whoami|id|passwd"
 
 	for line in $users; do
-		local id=$(echo "${line}" | cut -d ":" -f 2)
 		local user=$(echo "${line}" | cut -d ":" -f 1)
 		local shell=$(echo "${line}" | cut -d ":" -f 7 | egrep "(bash|zsh)")
 		local home="$(grep "^$user" $MOUNT_POINT/etc/passwd | cut -d ":" -f 6)"
