@@ -1,7 +1,7 @@
 #!/bin/bash
 
 clear
-export GREP_COLOR="01;35"
+export GREP_COLORS="01;35"
 
 MOUNT_POINT="$1"
 TIME_ZONE="$2"
@@ -538,7 +538,7 @@ get_command_history() {
 		local shell=$(echo "${line}" | cut -d ":" -f 7 | egrep "bash|zsh")
 		local home="$(grep "^$user" $MOUNT_POINT/etc/passwd | cut -d ":" -f 6)"
 
-		if [ $shell == "zsh" ]; then
+		if [ "$shell" == "zsh" ]; then
 			dir="$home/.zsh_history"
 		else
 			dir="$home/.bash_history"
