@@ -3,8 +3,52 @@
 clear
 export GREP_COLORS="01;35"
 
-MOUNT_POINT="$1"
-TIME_ZONE="$2"
+OPTIONS=("MOUNT_POINT" "TIME_ZONE")
+SWITCHES=("-m")
+OPTION_IDX=0
+NEXT_ARG_VARIABLE=""
+MOUNT_REQUIRED=0
+
+for arg in "$@"; do
+	if [ ! -z "$NEXT_ARG_VARIABLE" ]; then
+		eval "${NEXT_ARG_VARIABLE}=\"$arg\""
+		NEXT_ARG_VARIABLE=""
+		continue
+	fi
+
+	if [[ ${SWITCHES[@]} =~ $arg ]]; then
+		case $arg in
+		"-m")
+			MOUNT_REQUIRED=1
+			NEXT_ARG_VARIABLE="DISK_IMAGE"
+			;;
+		esac
+		continue
+	else
+
+		case $OPTION_IDX in
+			0)
+				MOUNT_POINT="$arg"
+				;;
+			1)
+				TIME_ZONE="$arg"
+				;;
+		esac
+	
+		((OPTION_IDX++))
+	fi
+
+done
+
+#MOUNT_POINT="$1"
+#TIME_ZONE="$2"
+
+echo "Mount Point: $MOUNT_POINT"
+echo "Time Zone: $TIME_ZONE"
+if [ ! -z "$DISK_IMAGE" ]; then
+	echo "Disk Image: $DISK_IMAGE"
+fi
+echo "Mount Required: $MOUNT_REQUIRED"
 
 RED='\033[31m'
 GREEN='\033[32m'
@@ -56,7 +100,7 @@ get_timezone() {
 	if [ -f "$MOUNT_POINT/etc/timezone" ]; then
 		echo "$(cat $MOUNT_POINT/etc/timezone)"
 	else
-	echo "$(realpath $MOUNT_POINT/etc/localtime | sed 's/.*zoneinfo\///')"
+		echo "$(realpath $MOUNT_POINT/etc/localtime | sed 's/.*zoneinfo\///')"
 	fi
 }
 
@@ -76,11 +120,164 @@ convert_timestamp() {
 	date -d "$timestamp $from_tz" +"%Y-%m-%d %H:%M:%S" -u | TZ="$to_tz" date +"%Y-%m-%d %H:%M:%S"
 }
 
+to_lower() {
+	echo "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+to_upper() {
+	echo "$1" | tr '[:lower:]' '[:upper:]'
+}
+
+determine_image_type() {
+	# check mmls output for partition table
+	local mmls_output=$(mmls "$1" 2>/dev/null)
+	
+	# if there is output, then it is a disk image
+	if [ ! -z "$mmls_output" ]; then
+		echo "disk"
+	else
+		# check if the output of the file command contains "filesystem"
+		local file_output=$(file "$1")
+		if [[ $file_output == *"filesystem"* ]]; then
+			echo "filesystem"
+		else
+			echo "unknown"
+		fi
+	fi
+}
+
+mount_image_to_directory() {
+	disk_image=$1
+	mount_point=$2
+	options=$3
+	mount $options "$disk_image" $mount_point
+	echo losetup -a | grep $disk_image | cut -d ":" -f 1
+}
+
 # -----------------------------------------------------------
 # MOUNT IMAGE
 # -----------------------------------------------------------
 mount_image() {
-	echo 'eofijwoif'
+	# check if the image exists
+	if [ ! -f "$DISK_IMAGE" ]; then
+		echo "Error: Image file $DISK_IMAGE does not exist."
+		exit 1
+	fi
+
+	# check if the disk image is already mounted
+	existing_loop=$(losetup -a | grep "$DISK_IMAGE" | cut -d ":" -f 1)
+	if [ ! -z "$existing_loop" ]; then
+		echo "EXISTING DEVICE FOUND"
+		LOOP_DEVICE=$existing_loop
+	fi
+
+	# get the file extension
+	extension="${DISK_IMAGE##*.}"
+	lower_extension=$(to_lower $extension)
+
+	case $lower_extension in
+		"e01")
+			if [ -z "$existing_loop" ]; then
+				# in the mount directory create a ewf directory
+				mkdir -p $MOUNT_POINT/ewf
+
+				# mount the e01 via ewfmount
+				ewfmount "$DISK_IMAGE" $MOUNT_POINT/ewf
+				
+				DISK_IMAGE=$MOUNT_POINT/ewf/ewf1
+				
+				# in the mount directory create a disk directory
+				mkdir -p $MOUNT_POINT/disk
+				MOUNT_POINT=$MOUNT_POINT/disk
+			fi
+			;;
+	esac
+
+	# check if the disk image is already mounted
+	existing_loop=$(losetup -a | grep $DISK_IMAGE | cut -d ":" -f 1)
+	if [ ! -z "$existing_loop" ]; then
+		echo "EXISTING DEVICE FOUND"
+		LOOP_DEVICE=$existing_loop
+	fi
+
+	# get the disk type
+	image_type=$(determine_image_type "$DISK_IMAGE")
+	case $image_type in
+		"filesystem")
+			if [ -z "$existing_loop" ]; then
+				mount_image_to_directory "$LOOP_DEVICE" $MOUNT_POINT "ro"
+			# mount the image to the mount point
+			else
+				LOOP_DEVICE=$(mount_image_to_directory "$DISK_IMAGE" $MOUNT_POINT "ro,loop")
+			fi
+			;;
+		"disk")
+			if [ -z "$existing_loop" ]; then
+				# attach to disk to a loop device
+				LOOP_DEVICE=$(losetup -f)
+				losetup $LOOP_DEVICE "$DISK_IMAGE"
+			fi
+
+			# if the mmls output contains "Linx Logical Volume Manager" attach that to a loop device
+			lvm_partition=$(mmls $LOOP_DEVICE 2>/dev/null | grep "Linux Logical Volume Manager" | awk '{print $3}')
+			if [ ! -z "$lvm_partition" ]; then
+				LVM_LOOP_DEVICE=$(losetup -f)
+				lvm_partition=$(echo $((10#$lvm_partition)))
+				# calculate the offset
+				offset=$((lvm_partition * 512))
+				losetup $LOOP_DEVICE -o $lvm_partition $LVM_LOOP_DEVICE
+			
+				# determine if there are physical volumes on the device
+				echo $pvs
+				vgchange -ay $pvs
+				# if pvs is not empty, then there are physical lvm volumes
+				if [ ! -z "$pvs" ]; then
+				
+					lv_name=$(lvs $pvs 2>/dev/null | grep $pvs | grep 'root' | awk '{print $1}')
+
+					# mount the logical volume to the directory
+					mount /dev/$pvs/$lv_name -o ro,noload $MOUNT_POINT
+
+					# iterate through the lvs results
+					for lv in $(lvs $pvs 2>/dev/null | grep $pvs | grep -e -v '(swap|root)' | awk '{print $1 $2}'); do
+						# get the logical volume name
+						lv_name=$(echo $lv | awk '{print $1}')
+						mapper_name=$(echo $lv | awk '{print $2"-"$1}')
+
+						# create a directory for the logical volume
+						mkdir -p $MOUNT_POINT/$lv_name
+
+						# mount the logical volume to the directory
+						mount /dev/$pvs/$lv_name -o ro,noload $MOUNT_POINT/$lv_name
+					done
+				else
+					echo "FAILED TO MOUNT LVM"
+				fi
+			else
+				# get the partition table
+				partition_table=$(mmls $LOOP_DEVICE 2>/dev/null)
+
+				# if there is no partition table, mount the image to the mount point
+				if [ -z "$partition_table" ]; then
+					mount_image_to_directory $LOOP_DEVICE $MOUNT_POINT
+				else
+					# get the partition start sector
+					partition_start=$(echo "$partition_table" | egrep "[0-9]{3}:  " | grep -v "GUID" | grep -v "Meta" | grep -v "\-\-\-\-" | grep -vi "swap" | head -n 1 | awk '{print $3}')
+
+					partition_start=$(echo $((10#$partition_start)))
+					# calculate the offset
+					offset=$((partition_start * 512))
+
+					# mount the image to the mount point with the offset
+					mount_image_to_directory $LOOP_DEVICE $MOUNT_POINT "-o ro,loop,offset=$offset"
+				fi
+			fi
+			;;
+		"unknown")
+			echo "Error: Unknown image type."
+			exit 1
+			;;
+	esac
 }
 
 # -----------------------------------------------------------
@@ -529,16 +726,16 @@ get_command_history() {
 	echo $(log_header "COMMAND HISTORY")
 	echo
 
-	local users=$(egrep "bash|zsh" $MOUNT_POINT/etc/passwd)
+	local users=$(egrep "(bash|zsh)" $MOUNT_POINT/etc/passwd)
 	local keywords="/tmp|/etc|whoami|id|passwd"
 
 	for line in $users; do
 		local id=$(echo "${line}" | cut -d ":" -f 2)
 		local user=$(echo "${line}" | cut -d ":" -f 1)
-		local shell=$(echo "${line}" | cut -d ":" -f 7 | egrep "bash|zsh")
+		local shell=$(echo "${line}" | cut -d ":" -f 7 | egrep "(bash|zsh)")
 		local home="$(grep "^$user" $MOUNT_POINT/etc/passwd | cut -d ":" -f 6)"
 
-		if [ "$shell" == "zsh" ]; then
+		if [[ $shell =~ "zsh" ]]; then
 			dir="$home/.zsh_history"
 		else
 			dir="$home/.bash_history"
@@ -594,6 +791,10 @@ get_apache_config() {
 }
 
 execute_all() {
+	# if MOUNT_REQUIRED is set, mount the image
+	if [ $MOUNT_REQUIRED -eq 1 ]; then
+		mount_image
+	fi
 	get_device_settings
 	get_users
 	get_command_history
