@@ -2,8 +2,6 @@
 Mount forensic disk images and perform baselining and post-mortem analysis on Linux machines. 
 
 ### Use
-Prior to executing the `baseline.sh` script.
-
 ```bash
 sudo ./baseline.sh -m <image_file> /mnt/<mount_point> <time_zone>
 ```
