@@ -3,6 +3,26 @@
 clear
 export GREP_COLORS="01;35"
 
+RED='\033[31m'
+GREEN='\033[32m'
+BLUE='\033[34m'
+CYAN='\033[35m'
+RESET='\033[0m'
+BOLD='\033[1m'
+BOLD_PINK='\033[1;35m'
+DIV="=============================="
+
+BANNER="
+██████╗ ███████╗ █████╗ ██████╗     ██████╗ ███████╗██╗██████╗ 
+██╔══██╗██╔════╝██╔══██╗██╔══██╗    ██╔══██╗██╔════╝██║██╔══██╗
+██║  ██║█████╗  ███████║██║  ██║    ██║  ██║█████╗  ██║██████╔╝
+██║  ██║██╔══╝  ██╔══██║██║  ██║    ██║  ██║██╔══╝  ██║██╔══██╗
+██████╔╝███████╗██║  ██║██████╔╝    ██████╔╝██║     ██║██║  ██║
+╚═════╝ ╚══════╝╚═╝  ╚═╝╚═════╝     ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═╝
+
+Perform post-mortem analysis on 'dead' Linux machines.
+"
+
 OPTIONS=("MOUNT_POINT" "TIME_ZONE")
 SWITCHES=("-m")
 OPTION_IDX=0
@@ -40,24 +60,12 @@ for arg in "$@"; do
 
 done
 
-#MOUNT_POINT="$1"
-#TIME_ZONE="$2"
-
-echo "Mount Point: $MOUNT_POINT"
-echo "Time Zone: $TIME_ZONE"
-if [ ! -z "$DISK_IMAGE" ]; then
-	echo "Disk Image: $DISK_IMAGE"
-fi
-echo "Mount Required: $MOUNT_REQUIRED"
-
-RED='\033[31m'
-GREEN='\033[32m'
-BLUE='\033[34m'
-CYAN='\033[35m'
-RESET='\033[0m'
-BOLD='\033[1m'
-BOLD_PINK='\033[1;35m'
-DIV="=============================="
+# echo "Mount Point: $MOUNT_POINT"
+# echo "Time Zone: $TIME_ZONE"
+# if [ ! -z "$DISK_IMAGE" ]; then
+# 	echo "Disk Image: $DISK_IMAGE"
+# fi
+# echo "Mount Required: $MOUNT_REQUIRED"
 
 log_header() {
 	local heading=$1
@@ -184,7 +192,7 @@ mount_image() {
 				mkdir -p $MOUNT_POINT/ewf
 
 				# mount the e01 via ewfmount
-				ewfmount "$DISK_IMAGE" $MOUNT_POINT/ewf
+				ewfmount "$DISK_IMAGE" $MOUNT_POINT/ewf 1>/dev/null
 				
 				DISK_IMAGE=$MOUNT_POINT/ewf/ewf1
 				
@@ -252,7 +260,7 @@ mount_image() {
 						mkdir -p $MOUNT_POINT/$lv_name
 
 						# mount the logical volume to the directory
-						mount /dev/$pvs/$lv_name -o ro,noload $MOUNT_POINT/$lv_name
+						mount /dev/$pvs/$lv_name -o ro,noload $MOUNT_POINT/$lv_name 2>/dev/null
 					done
 				else
 					echo "FAILED TO MOUNT LVM"
@@ -282,6 +290,14 @@ mount_image() {
 			exit 1
 			;;
 	esac
+}
+
+# -----------------------------------------------------------
+# BANNER
+# -----------------------------------------------------------
+
+show_banner() {
+	echo "$BANNER"
 }
 
 # -----------------------------------------------------------
@@ -794,10 +810,13 @@ get_apache_config() {
 }
 
 execute_all() {
+	show_banner
+
 	# if MOUNT_REQUIRED is set, mount the image
 	if [ $MOUNT_REQUIRED -eq 1 ]; then
 		mount_image
 	fi
+
 	initial_checks
 	get_device_settings
 	get_users
@@ -811,8 +830,6 @@ execute_all() {
 	get_last_logins
 	get_apache_config
 	get_web_logs
-
-	echo -e "${RED}${DIV}| FINISHED |${DIV}${RESET}"
 }
 
 execute_all
